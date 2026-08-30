@@ -2,9 +2,10 @@
   "name": "companion",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "node --test"
+  "main": "server.js",
+"scripts": {
+  "start": "node server.js",
+  "test": "node --test"
   },
   "keywords": [],
   "author": "",
