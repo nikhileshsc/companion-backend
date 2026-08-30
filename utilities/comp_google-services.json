@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "475586254726",
+    "project_id": "companion-astrodating",
+    "storage_bucket": "companion-astrodating.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:475586254726:android:7fd23bad51e9780ceefe07",
+        "android_client_info": {
+          "package_name": "com.companion.astrodating"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1TxgLz-c8oimJ6lNs67HRH3vIh_hoO90"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

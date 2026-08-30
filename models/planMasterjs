@@ -1,0 +1,106 @@
+const mongoose = require('mongoose')
+const Schema = mongoose.Schema;
+const benefitsSchema = new Schema({
+    title: {
+        type: String,
+        required: false,
+        default: '',
+    },
+    count : {
+        type: Number,
+        required: false,
+        default: 0
+    },
+    updateKey: {
+        type: String,
+        required: false,
+        default: '',
+    },
+})
+const PlanMasterSchema = new Schema({
+    planName: {
+        type: String,
+        required: false,
+        default: "",
+    },
+    planDescription: {
+        type: String,
+        required: false,
+        default: '',
+    },
+    duration: {
+        type: String,
+        require: false,
+        default: ''
+    },
+    price: {
+        type: Number,
+        required: false,
+        default: 0,
+    },
+    isMostPopular: {
+        type: Boolean,
+        required: false,
+        default: true,
+    },
+    benefits: {
+        type: [benefitsSchema],
+        required: false,
+        default: [],
+    },
+    benefitsDescriptions: {
+        type: [String],
+        required: false,
+    },
+    subscriptionStatus: {
+        type: String,
+        required: false,
+        default: '',
+    },
+    isActive: {
+        type: Boolean,
+        required: false,
+        default: true,
+    },
+    androidGroupId: {
+        type: String,
+        required: false,
+        default: '',
+    },
+    androidSubscriptionId: {
+        type: String,
+        required: false,
+        default: '',
+    },
+    // Google Play sells one subscription product with multiple base plans. Keep
+    // these explicit so entitlement mapping never depends on client input.
+    androidProductId: {
+        type: String,
+        required: false,
+        default: '',
+    },
+    androidBasePlanId: {
+        type: String,
+        required: false,
+        default: '',
+    },
+    iOsSubscriptionId: {
+        type: String,
+        required: false,
+        default: '',
+    },
+    order: {
+        type: Number,
+        requierd: false,
+        default: 0,
+    },
+    type: {
+        type: String,
+        required: false,
+        default: 'plan'
+    },
+}, { timestamps: true });
+PlanMasterSchema.index({ androidSubscriptionId: 1 }, { unique: true, partialFilterExpression: { androidSubscriptionId: { $gt: '' } } });
+PlanMasterSchema.index({ iOsSubscriptionId: 1 }, { unique: true, partialFilterExpression: { iOsSubscriptionId: { $gt: '' } } });
+const PlanMaster = mongoose.model('planmaster', PlanMasterSchema, 'planmaster')
+module.exports.PlanMaster = PlanMaster;

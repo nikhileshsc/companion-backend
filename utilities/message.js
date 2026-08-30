@@ -1,0 +1,21 @@
+module.exports = {
+    
+    recordAdded: "Record successfully added!.",
+    recordFetched: "Record successfully fetched!.",
+    recordUpdated: "Record successfully updated.",
+    recordRemoved: "Record successfully removed.",
+    otpSentOnMobileSuccess: "OTP sent successfully.",
+    invalidOtp: "Entered OTP is invalid",
+    fileUpload: "File uploaded successfully.",
+    invalidMobileNumber: "Please enter a valid mobile number with the country code. For reference, '+91XXXXXXXXXX'.",
+    tokenExpired: "Oops! Seems like you’ve logged in from a different device. Please log in again if you’d like to continue here.",
+    imageIsNotApproved: "This image is not approved from admin",
+    imageNotFoundInGallery: "Image not found in gallery.",
+    canNotDeleteProfileImage: "You can not delete profile image.",
+    planNotFound: "Plan not found.",
+    userNotFound: "The user does not exists on this platform.",
+    userNotSubscribed: "Looks like you are not subscribed yet.",
+    subsriptionNotFound: "Subscription not found.",
+    benefitsLess: "Your benefits are exhausted. Please upgrade your plan.",
+    subscriptionExpired: "Your plan has been expired. Please re-subscribe.",
+}
