@@ -1,0 +1,90 @@
+/**
+ * One-time data migration route: syncs users from the old AWS/Atlas
+ * database into this (Railway) database. Safe to run multiple times —
+ * matches on _id and upserts, so it never creates duplicates and never
+ * touches users that already exist here correctly.
+ *
+ * Protected by a shared secret (MIGRATION_SECRET env var) so it can't be
+ * triggered by anyone who doesn't already have access to this backend's
+ * environment variables.
+ *
+ * Delete this file (and the route mount in startup/routes.js) once the
+ * mobile app has fully cut over to this backend and this is no longer
+ * needed.
+ */
+
+const express = require('express');
+const mongoose = require('mongoose');
+const router = express.Router();
+
+function checkSecret(req, res, next) {
+    const provided = req.headers['x-migration-secret'] || req.query.secret;
+    if (!provided || provided !== process.env.MIGRATION_SECRET) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    next();
+}
+
+async function runUserSync(req, res) {
+    if (!process.env.ATLAS_MONGODB_URI) {
+        return res.status(500).json({ success: false, error: 'ATLAS_MONGODB_URI is not configured' });
+    }
+
+    let atlasConnection;
+    try {
+        atlasConnection = await mongoose.createConnection(process.env.ATLAS_MONGODB_URI, {}).asPromise();
+
+        // Loose schema — we just want the raw documents, not validation,
+        // since we're copying data as-is rather than constructing new docs.
+        const AtlasUser = atlasConnection.model(
+            'MigrationSourceUser',
+            new mongoose.Schema({}, { strict: false, collection: 'users' })
+        );
+
+        const localUsersCollection = mongoose.connection.collection('users');
+
+        const atlasUsers = await AtlasUser.find({}).lean();
+
+        let inserted = 0;
+        let updated = 0;
+        const errors = [];
+
+        for (const doc of atlasUsers) {
+            try {
+                const result = await localUsersCollection.updateOne(
+                    { _id: doc._id },
+                    { $set: doc },
+                    { upsert: true }
+                );
+                if (result.upsertedCount > 0) {
+                    inserted++;
+                } else {
+                    updated++;
+                }
+            } catch (err) {
+                errors.push({ id: String(doc._id), error: err.message });
+            }
+        }
+
+        res.json({
+            success: true,
+            totalUsersInAtlas: atlasUsers.length,
+            newlyInsertedIntoRailway: inserted,
+            alreadyPresentUpdated: updated,
+            errorCount: errors.length,
+            errors: errors.slice(0, 20), // cap output size
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (atlasConnection) {
+            await atlasConnection.close().catch(() => {});
+        }
+    }
+}
+
+// Supports GET (so it can be triggered by just visiting the URL) and POST.
+router.get('/run-users-sync', checkSecret, runUserSync);
+router.post('/run-users-sync', checkSecret, runUserSync);
+
+module.exports = router;
