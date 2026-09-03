@@ -2926,8 +2926,13 @@ const reportUser = async (req, res) => {
 
 const getReportRecords = async (req, res) => {
     try {
-        // Optional: Check if the requester is admin
-        if (req.user.role !== "admin") {
+        // Bug fix: req.user.role is an array (e.g. ["ROLE_MODERATOR"]),
+        // so comparing it directly to the string "admin" could never
+        // match for any account, including real admins. Reports/content
+        // moderation is core moderator work, so both roles are allowed.
+        const allowedRoles = ['ROLE_ADMIN', 'ROLE_MODERATOR'];
+        const userRoles = Array.isArray(req.user.role) ? req.user.role : [req.user.role];
+        if (!userRoles.some(r => allowedRoles.includes(r))) {
             return res.status(403).json({ error: "Access denied" });
         }
 
