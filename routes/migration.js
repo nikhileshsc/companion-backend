@@ -139,4 +139,79 @@ router.post('/reset-staff-password', checkSecret, async (req, res) => {
     }
 });
 
+/**
+ * Same as /reset-staff-password, but targets the AWS/Atlas database
+ * instead of this (Railway) database. Needed because the currently
+ * deployed admin panel frontend build calls an AWS API Gateway proxy
+ * that forwards to the AWS Elastic Beanstalk backend, which reads from
+ * Atlas — not Railway.
+ * Usage: POST with JSON body { "email": "...", "newPassword": "..." }
+ * and the same secret as the other endpoints.
+ */
+router.post('/reset-staff-password-atlas', checkSecret, async (req, res) => {
+    if (!process.env.ATLAS_MONGODB_URI) {
+        return res.status(500).json({ success: false, error: 'ATLAS_MONGODB_URI is not configured' });
+    }
+
+    const { email, newPassword } = req.body || {};
+    if (!email || !newPassword) {
+        return res.status(400).json({ success: false, error: 'email and newPassword are required in the JSON body' });
+    }
+    if (newPassword.length < 8) {
+        return res.status(400).json({ success: false, error: 'newPassword must be at least 8 characters' });
+    }
+
+    let atlasConnection;
+    try {
+        atlasConnection = await mongoose.createConnection(process.env.ATLAS_MONGODB_URI, {}).asPromise();
+
+        const bcrypt = require('bcrypt');
+        const hashed = await bcrypt.hash(newPassword, 10);
+
+        const AtlasStaff = atlasConnection.collection('staffs');
+        const result = await AtlasStaff.updateOne(
+            { email: email.toLowerCase() },
+            { $set: { password: hashed } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ success: false, error: 'No staff account found with that email in Atlas' });
+        }
+
+        res.json({ success: true, message: `Password updated in Atlas for ${email}` });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (atlasConnection) {
+            await atlasConnection.close().catch(() => {});
+        }
+    }
+});
+
+/**
+ * List staff accounts from Atlas (the database the current admin
+ * frontend build actually authenticates against via the AWS proxy).
+ */
+router.get('/list-staff-atlas', checkSecret, async (req, res) => {
+    if (!process.env.ATLAS_MONGODB_URI) {
+        return res.status(500).json({ success: false, error: 'ATLAS_MONGODB_URI is not configured' });
+    }
+    let atlasConnection;
+    try {
+        atlasConnection = await mongoose.createConnection(process.env.ATLAS_MONGODB_URI, {}).asPromise();
+        const AtlasStaff = atlasConnection.collection('staffs');
+        const staff = await AtlasStaff.find(
+            {},
+            { projection: { email: 1, firstName: 1, lastName: 1, isActive: 1, role: 1, _id: 0 } }
+        ).toArray();
+        res.json({ success: true, count: staff.length, staff });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (atlasConnection) {
+            await atlasConnection.close().catch(() => {});
+        }
+    }
+});
+
 module.exports = router;
