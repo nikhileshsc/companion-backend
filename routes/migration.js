@@ -87,4 +87,56 @@ async function runUserSync(req, res) {
 router.get('/run-users-sync', checkSecret, runUserSync);
 router.post('/run-users-sync', checkSecret, runUserSync);
 
+/**
+ * List admin/staff accounts (email + name + active status only — never
+ * the password hash) so you can see which accounts actually exist to log
+ * in with.
+ */
+router.get('/list-staff', checkSecret, async (req, res) => {
+    try {
+        const Staff = mongoose.connection.collection('staffs');
+        const staff = await Staff.find(
+            {},
+            { projection: { email: 1, firstName: 1, lastName: 1, isActive: 1, role: 1, _id: 0 } }
+        ).toArray();
+        res.json({ success: true, count: staff.length, staff });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/**
+ * Reset a staff member's password to a known value you choose.
+ * Usage: POST with JSON body { "email": "...", "newPassword": "..." }
+ * and the same secret as the other endpoints.
+ */
+router.post('/reset-staff-password', checkSecret, async (req, res) => {
+    try {
+        const { email, newPassword } = req.body || {};
+        if (!email || !newPassword) {
+            return res.status(400).json({ success: false, error: 'email and newPassword are required in the JSON body' });
+        }
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, error: 'newPassword must be at least 8 characters' });
+        }
+
+        const bcrypt = require('bcrypt');
+        const hashed = await bcrypt.hash(newPassword, 10);
+
+        const Staff = mongoose.connection.collection('staffs');
+        const result = await Staff.updateOne(
+            { email: email.toLowerCase() },
+            { $set: { password: hashed } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ success: false, error: 'No staff account found with that email' });
+        }
+
+        res.json({ success: true, message: `Password updated for ${email}` });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;
