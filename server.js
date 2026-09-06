@@ -50,6 +50,12 @@ app.use(function (req, res, next) {
 })
 app.use(logger);
 
+// Static WebView pages for features that shouldn't require a native app store
+// resubmission on every content/API change (Daily Horoscope, Compatibility Report).
+// These pages call the JSON API routes above using the same auth token the
+// native app already holds in local storage, passed in as a query param.
+app.use('/webviews', express.static(require('path').join(__dirname, 'public/webviews')));
+
 require('./startup/routes')(app);
 
 //send response to show health status on aws
