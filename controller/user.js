@@ -32,6 +32,7 @@ const mongoose = require('mongoose');
 const message = require('../utilities/message');
 const MessageLimit = require('../models/freeMessageLimit');
 const Reports = require('../models/reportSchema')
+const { getDailyHoroscope: fetchDailyHoroscope, getAshtakootMilan, parseTimeOfBirth, DEFAULT_TZONE } = require('../utilities/divineApi');
 
 
 // get country codes and flags
@@ -266,22 +267,8 @@ const verifyOtp = async (req, res, next) => {
             if (!req.body.email) return res.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'Please enter a valid email address.' });
             query['$and'].push({ email: req.body.email })
         }
-        // Atomically claim the OTP: find the matching, unconsumed OTP and
-        // immediately clear it in the same DB operation. This closes a race
-        // where two rapid/duplicate verifyOtp calls (double-tap, client
-        // retry) both matched the same still-valid OTP, each generated and
-        // saved its own loginToken, and the second save silently overwrote
-        // the first token — leaving the app holding a stale token that
-        // immediately 401'd on every subsequent authenticated call.
-        // With findOneAndUpdate, only the first request can match and clear
-        // the OTP; a concurrent duplicate will find no matching document
-        // (since otp is already cleared) and correctly get "Invalid OTP"
-        // instead of silently minting a second, overwriting token.
-        let user = await User.findOneAndUpdate(
-            query,
-            { $set: { otp: '', otpDeliveryMethod: null, otpRequestedAt: null } },
-            { new: false, fields: 'needsUpdateProfile isRegistrationCompleted loginToken agoraChatUid agoraChatLoginDetails shortListedUsers sentInterestUsers receivedInterestUsers blockedUsers declinedUserInterests profileUrl userId userIdSeries isLead subscriptionId unlockChatUsers otp otpDeliveryMethod' }
-        );
+        //get mobile with otp
+        let user = await User.findOne(query, 'needsUpdateProfile isRegistrationCompleted loginToken agoraChatUid agoraChatLoginDetails shortListedUsers sentInterestUsers receivedInterestUsers blockedUsers declinedUserInterests profileUrl userId userIdSeries isLead subscriptionId unlockChatUsers otp otpDeliveryMethod');
         //check otp valid or not
         if (!user) return res.status(400).json({ statusCode: 400, error: 'Bad Request', "message": Message.invalidOtp });
 
@@ -2926,13 +2913,8 @@ const reportUser = async (req, res) => {
 
 const getReportRecords = async (req, res) => {
     try {
-        // Bug fix: req.user.role is an array (e.g. ["ROLE_MODERATOR"]),
-        // so comparing it directly to the string "admin" could never
-        // match for any account, including real admins. Reports/content
-        // moderation is core moderator work, so both roles are allowed.
-        const allowedRoles = ['ROLE_ADMIN', 'ROLE_MODERATOR'];
-        const userRoles = Array.isArray(req.user.role) ? req.user.role : [req.user.role];
-        if (!userRoles.some(r => allowedRoles.includes(r))) {
+        // Optional: Check if the requester is admin
+        if (req.user.role !== "admin") {
             return res.status(403).json({ error: "Access denied" });
         }
 
@@ -3188,6 +3170,112 @@ const canSendCall = async (req, res) => {
 
 
 
+// getDailyHoroscope - free feature, based on logged-in user's own zodiac sign
+const getDailyHoroscope = async (req, res, next) => {
+    try {
+        const currentUser = await User.findById(req.user._id, 'zodiacSignInEng fullName');
+        if (!currentUser) {
+            return res.status(404).send({ statusCode: 404, error: 'Not Found', message: 'User not found.' });
+        }
+        if (!currentUser.zodiacSignInEng) {
+            return res.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'Zodiac sign not set on your profile yet. Please complete your birth details first.' });
+        }
+
+        const horoscopeData = await fetchDailyHoroscope(currentUser.zodiacSignInEng, DEFAULT_TZONE);
+
+        return res.status(200).send({
+            statusCode: 200,
+            message: 'Daily horoscope fetched successfully.',
+            data: {
+                sign: currentUser.zodiacSignInEng,
+                date: new Date().toISOString().split('T')[0],
+                horoscope: horoscopeData,
+            },
+        });
+    } catch (error) {
+        console.log('error in getDailyHoroscope', error.message);
+        console.log('error in getDailyHoroscope', error);
+        return res.status(500).send({ statusCode: 500, error: 'Internal Server Error', message: 'Could not fetch daily horoscope right now. Please try again later.' });
+    }
+};
+
+// getCompatibilityReport - premium feature, computes Ashtakoot Milan between logged-in user and a matched user
+const getCompatibilityReport = async (req, res, next) => {
+    try {
+        const { matchUserId } = req.body;
+        if (!matchUserId) {
+            return res.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'matchUserId is required.' });
+        }
+
+        const birthFields = 'fullName gender birthDate timeOfBirth cityOfBirth latitudeOfCityOfBirth longitudeOfCityOfBirth';
+        const [currentUser, matchUser] = await Promise.all([
+            User.findById(req.user._id, birthFields),
+            User.findById(matchUserId, birthFields),
+        ]);
+
+        if (!currentUser || !matchUser) {
+            return res.status(404).send({ statusCode: 404, error: 'Not Found', message: 'One or both user profiles could not be found.' });
+        }
+
+        const missingFieldsFor = (u) => {
+            const missing = [];
+            if (!u.birthDate) missing.push('birthDate');
+            if (!u.timeOfBirth) missing.push('timeOfBirth');
+            if (!u.cityOfBirth) missing.push('cityOfBirth');
+            if (!u.latitudeOfCityOfBirth || !u.longitudeOfCityOfBirth) missing.push('cityOfBirth coordinates');
+            return missing;
+        };
+        const missingCurrent = missingFieldsFor(currentUser);
+        const missingMatch = missingFieldsFor(matchUser);
+        if (missingCurrent.length || missingMatch.length) {
+            return res.status(400).send({
+                statusCode: 400,
+                error: 'Bad Request',
+                message: 'Complete birth details are required for both profiles to generate a compatibility report.',
+                details: { missingCurrent, missingMatch },
+            });
+        }
+
+        const toPersonPayload = (u) => {
+            const bd = new Date(u.birthDate);
+            const t = parseTimeOfBirth(u.timeOfBirth);
+            return {
+                fullName: u.fullName,
+                day: bd.getUTCDate(),
+                month: bd.getUTCMonth() + 1,
+                year: bd.getUTCFullYear(),
+                hour: t.hour,
+                min: t.min,
+                sec: t.sec,
+                gender: u.gender,
+                place: u.cityOfBirth,
+                lat: u.latitudeOfCityOfBirth,
+                lon: u.longitudeOfCityOfBirth,
+                tzone: DEFAULT_TZONE,
+            };
+        };
+
+        const reportData = await getAshtakootMilan(toPersonPayload(currentUser), toPersonPayload(matchUser));
+
+        return res.status(200).send({
+            statusCode: 200,
+            message: 'Compatibility report generated successfully.',
+            data: {
+                person1Name: currentUser.fullName,
+                person2Name: matchUser.fullName,
+                report: reportData,
+            },
+        });
+    } catch (error) {
+        console.log('error in getCompatibilityReport', error.message);
+        console.log('error in getCompatibilityReport', error);
+        return res.status(500).send({ statusCode: 500, error: 'Internal Server Error', message: 'Could not generate compatibility report right now. Please try again later.' });
+    }
+};
+
+
+
+
 module.exports = {
     getCountryCodesAndFlags,
     requestOtp,
@@ -3196,6 +3284,8 @@ module.exports = {
     getMandatoryDetails,
     getAboutDetails,
     updateAboutDetails,
+    getDailyHoroscope,
+    getCompatibilityReport,
     getBasicDetails,
     updateBasicDetails,
     updateInterestsByType,
