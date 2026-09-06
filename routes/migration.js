@@ -214,4 +214,55 @@ router.get('/list-staff-atlas', checkSecret, async (req, res) => {
     }
 });
 
+/**
+ * Diagnostic only: mirrors the exact login lookup + bcrypt compare
+ * against Atlas, to isolate whether a failure is due to record lookup,
+ * password mismatch, or something else — without any curl/shell quoting
+ * ambiguity. Never returns the hash itself.
+ */
+router.post('/test-atlas-login', checkSecret, async (req, res) => {
+    if (!process.env.ATLAS_MONGODB_URI) {
+        return res.status(500).json({ success: false, error: 'ATLAS_MONGODB_URI is not configured' });
+    }
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+        return res.status(400).json({ success: false, error: 'email and password are required' });
+    }
+
+    let atlasConnection;
+    try {
+        atlasConnection = await mongoose.createConnection(process.env.ATLAS_MONGODB_URI, {}).asPromise();
+        const bcrypt = require('bcrypt');
+        const AtlasStaff = atlasConnection.collection('staffs');
+
+        const staff = await AtlasStaff.findOne({ email: email.toLowerCase() });
+        if (!staff) {
+            return res.json({ success: true, staffFound: false });
+        }
+
+        const passwordFieldType = typeof staff.password;
+        const passwordLength = staff.password ? staff.password.length : 0;
+        const hashPrefix = staff.password ? staff.password.substring(0, 7) : null;
+        const passwordMatches = staff.password ? await bcrypt.compare(password, staff.password) : false;
+
+        res.json({
+            success: true,
+            staffFound: true,
+            isActive: staff.isActive,
+            passwordFieldType,
+            passwordLength,
+            hashPrefix, // e.g. "$2b$10$" if a real bcrypt hash
+            passwordMatches,
+            receivedPasswordLength: password.length,
+            receivedPasswordCharCodes: [...password].map(c => c.charCodeAt(0)), // reveals hidden/extra characters
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (atlasConnection) {
+            await atlasConnection.close().catch(() => {});
+        }
+    }
+});
+
 module.exports = router;
