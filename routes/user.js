@@ -10,8 +10,6 @@ router.post('/requestOtp', userController.requestOtp)
 router.post('/verifyOtp', userController.verifyOtp)
 router.post('/addUpdateMandatoryDetails', userAuth, userController.addUpdateMandatoryDetails)
 router.get('/getMandatoryDetails', userAuth, userController.getMandatoryDetails)
-router.get('/getDailyHoroscope', userAuth, userController.getDailyHoroscope)
-router.post('/getCompatibilityReport', userAuth, userController.getCompatibilityReport)
 router.get('/getAboutDetails', userAuth, userController.getAboutDetails)
 router.post('/updateAboutDetails', userAuth, userController.updateAboutDetails)
 router.get('/getBasicDetails', userAuth, userController.getBasicDetails)
@@ -87,5 +85,8 @@ router.get('/getReportsRecords', userAuth, userController.getReportRecords);
 router.post('/updateToken', userAuth, userController.updateVOIPToken)
 
 router.get('/canSendCall', userAuth, userController.canSendCall)
+
+router.get('/getDailyHoroscope', userAuth, userController.getDailyHoroscope)
+router.post('/getCompatibilityReport', userAuth, userController.getCompatibilityReport)
 
 module.exports = router;
