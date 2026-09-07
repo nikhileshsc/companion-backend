@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Compatibility Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#FC427B; --secondary:#161B27; --title:#252525; --desc:#818181; --desc1:#636363;
+    --bg:#FFFFFF; --bg-report:#F7F7F7; --light-pink:#FFECF2; --filter-bg:#FFF8FA;
+    --green:#2ECC71; --green-dark:#27AE60; --red:#E74C3C; --border:#EEEEEE; --shadow:0 4px 14px rgba(0,0,0,0.06);
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg-report); font-family:'Open Sans',sans-serif; }
+
+  .hero{ text-align:center; padding:22px 16px 4px; background:var(--bg); border-bottom:1px solid var(--border); }
+  .hero-eyebrow{
+    display:inline-flex; align-items:center; gap:6px; background:var(--primary); color:#fff;
+    font-family:'Poppins',sans-serif; font-weight:600; font-size:10px; letter-spacing:0.04em;
+    padding:5px 12px; border-radius:20px; margin-bottom:12px;
+  }
+  .hero h1{ font-family:'Poppins',sans-serif; font-weight:700; font-size:21px; color:var(--title); margin:0 0 8px; }
+  .hero-names{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:4px; }
+  .avatar{
+    width:44px;height:44px; border-radius:50%; background:linear-gradient(135deg,#FC427B,#FF8FB3);
+    display:flex;align-items:center;justify-content:center; color:#fff;
+    font-family:'Poppins',sans-serif; font-weight:700; font-size:15px; border:2px solid #fff; box-shadow:var(--shadow);
+  }
+  .heart-divider{ color:var(--primary); font-size:16px; }
+  .hero-name-label{ font-family:'Poppins',sans-serif; font-size:12px; color:var(--desc1); font-weight:600; }
+
+  .section{ padding:20px 16px 4px; }
+  .card{ background:var(--bg); border-radius:12px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+  .section-title-row{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .section-icon{ width:26px;height:26px; border-radius:8px; background:var(--light-pink); display:flex;align-items:center;justify-content:center; font-size:13px; }
+  .section-title{ font-family:'Poppins',sans-serif; font-weight:700; font-size:16px; color:var(--title); }
+  .section-sub{ font-size:11.5px; color:var(--desc); line-height:1.5; margin:0 0 14px 34px; }
+
+  .manglik-row{ display:flex; gap:10px; }
+  .manglik-card{ flex:1; background:var(--filter-bg); border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .manglik-name{ font-family:'Poppins',sans-serif; font-size:12px; font-weight:600; color:var(--title); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
+  .manglik-badge{ font-family:'Poppins',sans-serif; font-size:8.5px; font-weight:700; padding:3px 7px; border-radius:20px; letter-spacing:0.02em; }
+  .badge-clear{ background:rgba(46,204,113,0.14); color:var(--green-dark);}
+  .badge-caution{ background:rgba(231,76,60,0.12); color:var(--red);}
+  .manglik-verdict{ font-family:'Poppins',sans-serif; font-weight:700; font-size:17px; color:var(--title); margin-bottom:8px; }
+  .strength-bar-track{ height:5px; background:#EFEFEF; border-radius:3px; overflow:hidden; margin-bottom:5px; }
+  .strength-bar-fill{ height:100%; border-radius:3px; }
+  .strength-label{ font-size:10px; color:var(--desc); display:flex; justify-content:space-between; font-weight:600; }
+
+  .remedies-card{ background:var(--light-pink); border-radius:10px; padding:14px; }
+  .remedies-label{ font-family:'Poppins',sans-serif; font-size:11px; font-weight:700; color:var(--primary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.03em; }
+  .remedies ul{ margin:0; padding-left:16px; color:var(--desc1); font-size:12px; line-height:1.7; }
+  .remedies li::marker{ color:var(--primary); }
+
+  .planet-list{ border-top:1px solid var(--border); margin-top:2px; }
+  .planet-row{ display:flex; align-items:center; gap:10px; padding:11px 2px; border-bottom:1px solid var(--border); }
+  .planet-glyph{
+    width:28px;height:28px; border-radius:50%; background:var(--light-pink); display:flex;align-items:center;justify-content:center;
+    font-family:'Poppins',sans-serif; font-weight:700; font-size:12px; color:var(--primary); flex-shrink:0;
+  }
+  .planet-info{ flex:1; min-width:0; }
+  .pname{ font-family:'Poppins',sans-serif; font-size:12.5px; font-weight:600; color:var(--title); display:flex; align-items:center; gap:6px; }
+  .retro-tag{ font-size:8px; font-weight:700; color:var(--red); border:1px solid rgba(231,76,60,0.35); padding:1px 5px; border-radius:4px; }
+  .pmeta{ font-size:10.5px; color:var(--desc); margin-top:2px; }
+  .pmeta b{ color:var(--desc1); font-weight:600; }
+
+  .score-banner{
+    display:flex; align-items:center; gap:14px; background:linear-gradient(135deg,#FC427B,#FF7CA3);
+    border-radius:12px; padding:16px; margin:0 16px 14px; box-shadow:0 8px 20px rgba(252,66,123,0.28);
+  }
+  .score-circle{
+    width:56px;height:56px; border-radius:50%; background:rgba(255,255,255,0.18); border:2px solid rgba(255,255,255,0.55);
+    display:flex;align-items:center;justify-content:center; font-family:'Poppins',sans-serif; font-weight:800; font-size:15px; color:#fff; flex-shrink:0;
+  }
+  .score-text{ color:#fff; }
+  .score-text .stitle{ font-family:'Poppins',sans-serif; font-weight:700; font-size:14px; margin-bottom:3px;}
+  .score-text .sdesc{ font-size:11px; opacity:0.9; line-height:1.4; }
+
+  .footnote{ padding:6px 20px 32px; text-align:center; }
+  .footnote p{ font-size:10px; color:var(--desc); line-height:1.6; margin:0; }
+
+  .state{ padding:60px 20px; text-align:center; color:var(--desc); font-size:13px; }
+  .state.error{ color:#E74C3C; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="state" id="loading">Calculating compatibility…</div>
+</div>
+
+<script>
+  function qs(name) {
+    return new URLSearchParams(window.location.search).get(name);
+  }
+
+  function initials(name) {
+    return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  }
+
+  // Ashtakoot Milan's per-koota keys and their published max points (sum to 36).
+  const ASHTAKOOT_KEYS = ['varna', 'vashya', 'tara', 'yoni', 'graha_maitri', 'gana', 'bhakoot', 'nadi'];
+
+  function computeOverallScore(ashtakootMilan) {
+    if (!ashtakootMilan) return null;
+    const kootas = ashtakootMilan.ashtakoot_milan || ashtakootMilan;
+    let obtained = 0, max = 0;
+    for (const key of ASHTAKOOT_KEYS) {
+      const k = kootas[key];
+      if (!k) continue;
+      obtained += Number(k.points_obtained) || 0;
+      max += Number(k.max_ponits ?? k.max_points) || 0;
+    }
+    if (!max) return null;
+    return Math.round((obtained / max) * 100);
+  }
+
+  async function loadReport() {
+    const token = qs('token');
+    const userId = qs('userId');
+    const app = document.getElementById('app');
+
+    if (!token || !userId) {
+      app.innerHTML = '<div class="state error">Missing token or userId.</div>';
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/app/v1/user/getCompatibilityReport', {
+        method: 'POST',
+        headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const json = await res.json();
+
+      // 402 = out of quota, 403 = no active plan at all. Both mean "needs to
+      // upgrade" rather than a generic failure, so they get their own screen
+      // with a real way forward instead of a bare error string.
+      if (res.status === 402 || res.status === 403) {
+        renderUpgrade(json.message);
+        return;
+      }
+      if (!res.ok || !json.data) {
+        throw new Error(json.message || 'Could not load compatibility report.');
+      }
+      render(json.data);
+    } catch (err) {
+      app.innerHTML = '<div class="state error">' + (err.message || 'Something went wrong.') + '</div>';
+    }
+  }
+
+  function renderUpgrade(message) {
+    document.getElementById('app').innerHTML = `
+      <div class="state">
+        <div style="font-size:15px;color:var(--title);font-family:'Poppins',sans-serif;font-weight:700;margin-bottom:8px;">
+          Unlock Compatibility Reports
+        </div>
+        <p style="font-size:12.5px;color:var(--desc);line-height:1.6;margin:0 0 20px;">
+          ${message || 'Upgrade your plan to view full compatibility reports.'}
+        </p>
+        <a href="companion://open-plans" style="
+          display:inline-block; background:linear-gradient(135deg,#FC427B,#FF7CA3); color:#fff;
+          font-family:'Poppins',sans-serif; font-weight:700; font-size:13px;
+          padding:12px 28px; border-radius:24px; text-decoration:none;
+          box-shadow:0 8px 20px rgba(252,66,123,0.28);
+        ">View Plans</a>
+      </div>
+    `;
+  }
+
+  function renderPlanetRows(positions, label) {
+    // Defensive: DivineAPI's exact field names for this endpoint may vary
+    // slightly by plan/version. This reads the common ones and falls back
+    // gracefully rather than throwing if a field is named differently.
+    const list = Array.isArray(positions) ? positions : (positions && positions.planets) || [];
+    if (!list.length) return '';
+    return list.slice(0, 5).map(pl => {
+      const name = pl.planet || pl.graha || pl.name || '—';
+      const sign = pl.sign || pl.rashi || pl.zodiac_sign || '';
+      const house = pl.house || pl.house_number || '';
+      const nakshatra = pl.nakshatra || pl.nakshatra_name || '';
+      const retro = pl.is_retrograde || pl.retrograde;
+      return `
+        <div class="planet-row">
+          <div class="planet-glyph">${String(name).slice(0,2)}</div>
+          <div class="planet-info">
+            <div class="pname">${name} ${retro ? '<span class="retro-tag">RETRO</span>' : ''}</div>
+            <div class="pmeta"><b>${label}</b> · ${sign}${house ? ' · House ' + house : ''}${nakshatra ? ' · ' + nakshatra : ''}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function render(data) {
+    const name1 = data.person1?.name || 'Person 1';
+    const name2 = data.person2?.name || 'Person 2';
+    const score = computeOverallScore(data.ashtakootMilan);
+    const p1 = data.manglikDosha?.p1 || {};
+    const p2 = data.manglikDosha?.p2 || {};
+    const overallText = data.ashtakootMilan?.content || '';
+
+    const p1IsManglik = (p1.manglik_dosha || '').toLowerCase() === 'yes';
+    const p2IsManglik = (p2.manglik_dosha || '').toLowerCase() === 'yes';
+    const remedies = [...(p1.remedies || []), ...(p2.remedies || [])];
+
+    document.getElementById('app').innerHTML = `
+      <div class="hero">
+        <div class="hero-eyebrow">✦ PREMIUM REPORT</div>
+        <h1>Complete Compatibility Report</h1>
+        <div class="hero-names">
+          <div class="avatar">${initials(name1)}</div>
+          <span class="heart-divider">♥</span>
+          <div class="avatar">${initials(name2)}</div>
+        </div>
+        <div class="hero-name-label">${name1} &nbsp;&amp;&nbsp; ${name2}</div>
+      </div>
+
+      ${score !== null ? `
+      <div class="score-banner">
+        <div class="score-circle">${score}%</div>
+        <div class="score-text">
+          <div class="stitle">${score >= 70 ? 'Excellent Match' : score >= 50 ? 'Good Match' : 'Mixed Match'}</div>
+          <div class="sdesc">${overallText || 'Based on Ashtakoot Milan analysis of both birth charts.'}</div>
+        </div>
+      </div>` : ''}
+
+      <div class="section">
+        <div class="card">
+          <div class="section-title-row"><div class="section-icon">♂</div><div class="section-title">Manglik Compatibility</div></div>
+          <div class="section-sub">Checks whether Mars' placement in either chart could bring friction to the relationship.</div>
+
+          <div class="manglik-row">
+            <div class="manglik-card">
+              <div class="manglik-name">${name1} <span class="manglik-badge ${p1IsManglik ? 'badge-caution' : 'badge-clear'}">${p1IsManglik ? 'MANGLIK' : 'CLEAR'}</span></div>
+              <div class="manglik-verdict">${p1IsManglik ? (p1.strength || 'Manglik') : 'Non-Manglik'}</div>
+              <div class="strength-bar-track"><div class="strength-bar-fill" style="width:${p1.percentage || 0}%;background:${p1IsManglik ? 'var(--red)' : 'var(--green)'};"></div></div>
+              <div class="strength-label"><span>Strength</span><span>${p1.percentage || 0}%</span></div>
+            </div>
+            <div class="manglik-card">
+              <div class="manglik-name">${name2} <span class="manglik-badge ${p2IsManglik ? 'badge-caution' : 'badge-clear'}">${p2IsManglik ? 'MANGLIK' : 'CLEAR'}</span></div>
+              <div class="manglik-verdict">${p2IsManglik ? (p2.strength || 'Manglik') : 'Non-Manglik'}</div>
+              <div class="strength-bar-track"><div class="strength-bar-fill" style="width:${p2.percentage || 0}%;background:${p2IsManglik ? 'var(--red)' : 'var(--green)'};"></div></div>
+              <div class="strength-label"><span>Strength</span><span>${p2.percentage || 0}%</span></div>
+            </div>
+          </div>
+        </div>
+
+        ${remedies.length ? `
+        <div class="card remedies">
+          <div class="remedies-card">
+            <div class="remedies-label">Suggested Remedies</div>
+            <ul>${remedies.map(r => `<li>${r}</li>`).join('')}</ul>
+          </div>
+        </div>` : ''}
+
+        <div class="card">
+          <div class="section-title-row"><div class="section-icon">✦</div><div class="section-title">Planetary Alignment</div></div>
+          <div class="section-sub">Where each partner's planets sit right now — house, sign, and nakshatra.</div>
+          <div class="planet-list">
+            ${renderPlanetRows(data.planetaryPositions?.person1, name1)}
+            ${renderPlanetRows(data.planetaryPositions?.person2, name2)}
+          </div>
+        </div>
+      </div>
+
+      <div class="footnote">
+        <p>Compatibility data calculated from verified birth details.<br/>Powered by DivineAPI · Included in your Premium plan.</p>
+      </div>
+    `;
+  }
+
+  loadReport();
+</script>
+</body>
+</html>
