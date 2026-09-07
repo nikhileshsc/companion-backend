@@ -32,7 +32,7 @@ const mongoose = require('mongoose');
 const message = require('../utilities/message');
 const MessageLimit = require('../models/freeMessageLimit');
 const Reports = require('../models/reportSchema')
-const { getDailyHoroscope: fetchDailyHoroscope, getAshtakootMilan, parseTimeOfBirth, DEFAULT_TZONE } = require('../utilities/divineApi');
+const divineApi = require('../utilities/divineApi');
 
 
 // get country codes and flags
@@ -3165,113 +3165,143 @@ const canSendCall = async (req, res) => {
     }
 };
 
+// ---------------------------------------------------------------------------
+// Daily Horoscope + Compatibility Report (DivineAPI integration)
+// ---------------------------------------------------------------------------
 
+// Converts a User document's stored birth details into the shape DivineAPI's
+// matching/planetary-position endpoints expect. Returns null if the user is
+// missing birth data required for a chart-based reading.
+function buildDivinePerson(userDoc) {
+    if (!userDoc || !userDoc.birthDate) return null;
 
+    const birthDate = new Date(userDoc.birthDate);
+    let hour = 12, min = 0; // fall back to noon if no birth time on file
+    if (userDoc.timeOfBirth && /^\d{1,2}:\d{2}/.test(userDoc.timeOfBirth)) {
+        const [h, m] = userDoc.timeOfBirth.split(':').map(Number);
+        hour = h;
+        min = m;
+    }
 
+    const lat = parseFloat(userDoc.latitudeOfCityOfBirth);
+    const lon = parseFloat(userDoc.longitudeOfCityOfBirth);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
 
+    return {
+        fullName: userDoc.fullName || 'User',
+        day: birthDate.getUTCDate(),
+        month: birthDate.getUTCMonth() + 1,
+        year: birthDate.getUTCFullYear(),
+        hour,
+        min,
+        sec: 0,
+        gender: (userDoc.gender || 'Other').toLowerCase(),
+        place: userDoc.cityOfBirth || '',
+        lat,
+        lon,
+    };
+}
 
-// getDailyHoroscope - free feature, based on logged-in user's own zodiac sign
-const getDailyHoroscope = async (req, res, next) => {
+// GET /getDailyHoroscope — free daily horoscope for the logged-in user's zodiac sign.
+const getDailyHoroscope = async (req, res) => {
     try {
-        const currentUser = await User.findById(req.user._id, 'zodiacSignInEng fullName');
-        if (!currentUser) {
-            return res.status(404).send({ statusCode: 404, error: 'Not Found', message: 'User not found.' });
+        const sign = req.user.zodiacSignInEng;
+        if (!sign) {
+            return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Zodiac sign not set for this user yet.' });
         }
-        if (!currentUser.zodiacSignInEng) {
-            return res.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'Zodiac sign not set on your profile yet. Please complete your birth details first.' });
-        }
-
-        const horoscopeData = await fetchDailyHoroscope(currentUser.zodiacSignInEng, DEFAULT_TZONE);
-
-        return res.status(200).send({
-            statusCode: 200,
-            message: 'Daily horoscope fetched successfully.',
-            data: {
-                sign: currentUser.zodiacSignInEng,
-                date: new Date().toISOString().split('T')[0],
-                horoscope: horoscopeData,
-            },
-        });
+        const result = await divineApi.getDailyHoroscope(sign);
+        return res.status(200).json({ statusCode: 200, error: null, message: 'Daily horoscope fetched successfully', data: result.data });
     } catch (error) {
-        console.log('error in getDailyHoroscope', error.message);
-        console.log('error in getDailyHoroscope', error);
-        return res.status(500).send({ statusCode: 500, error: 'Internal Server Error', message: 'Could not fetch daily horoscope right now. Please try again later.' });
+        if (error.code === 'DIVINE_API_NOT_CONFIGURED') {
+            return res.status(503).json({ statusCode: 503, error: 'Service Unavailable', message: error.message });
+        }
+        console.log('getDailyHoroscope error ', error?.response?.data || error.message);
+        return res.status(500).json({ statusCode: 500, error: 'Something went wrong', message: 'Could not fetch daily horoscope right now.' });
     }
 };
 
-// getCompatibilityReport - premium feature, computes Ashtakoot Milan between logged-in user and a matched user
-const getCompatibilityReport = async (req, res, next) => {
+// POST /getCompatibilityReport — full Manglik + Ashtakoot + planetary-position
+// compatibility report between the logged-in user and another user (body: { userId }).
+const getCompatibilityReport = async (req, res) => {
     try {
-        const { matchUserId } = req.body;
-        if (!matchUserId) {
-            return res.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'matchUserId is required.' });
+        const otherUserId = req.body.userId;
+        if (!otherUserId) {
+            return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'userId is required.' });
         }
 
-        const birthFields = 'fullName gender birthDate timeOfBirth cityOfBirth latitudeOfCityOfBirth longitudeOfCityOfBirth';
-        const [currentUser, matchUser] = await Promise.all([
-            User.findById(req.user._id, birthFields),
-            User.findById(matchUserId, birthFields),
-        ]);
-
-        if (!currentUser || !matchUser) {
-            return res.status(404).send({ statusCode: 404, error: 'Not Found', message: 'One or both user profiles could not be found.' });
+        // Premium gate: same matchMakingReport benefit + quota that the native
+        // Android compatibility flow already spends via updateBenefitByType.
+        // A free-plan user (no subscriptionId at all) is rejected the same way
+        // updateBenefitByType rejects them for chatProfiles.
+        const user = await User.findOne({ _id: req.user.id }, 'subscriptionId');
+        if (!user || !user.subscriptionId) {
+            return res.status(403).json({ statusCode: 403, error: 'Forbidden', message: 'You are currently on a free plan.' });
+        }
+        const subscription = await Subscriptions.findOne({ _id: user.subscriptionId }, 'benefits subscriptionStatus planExpiredOn');
+        if (!subscription) {
+            return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: Message.subsriptionNotFound });
+        }
+        if (!isActiveEntitlement(subscription)) {
+            return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: Message.subscriptionExpired });
+        }
+        if (subscription.benefits.matchMakingReport <= 0) {
+            return res.status(402).json({ statusCode: 402, error: 'Benefits Exhausted', message: Message.benefitsLess });
         }
 
-        const missingFieldsFor = (u) => {
-            const missing = [];
-            if (!u.birthDate) missing.push('birthDate');
-            if (!u.timeOfBirth) missing.push('timeOfBirth');
-            if (!u.cityOfBirth) missing.push('cityOfBirth');
-            if (!u.latitudeOfCityOfBirth || !u.longitudeOfCityOfBirth) missing.push('cityOfBirth coordinates');
-            return missing;
-        };
-        const missingCurrent = missingFieldsFor(currentUser);
-        const missingMatch = missingFieldsFor(matchUser);
-        if (missingCurrent.length || missingMatch.length) {
-            return res.status(400).send({
+        const otherUser = await User.findOne({ _id: otherUserId },
+            'fullName gender birthDate timeOfBirth cityOfBirth latitudeOfCityOfBirth longitudeOfCityOfBirth');
+        if (!otherUser) {
+            return res.status(404).json({ statusCode: 404, error: 'Not Found', message: 'User not found.' });
+        }
+
+        const selfPerson = buildDivinePerson(req.user);
+        const otherPerson = buildDivinePerson(otherUser);
+        if (!selfPerson || !otherPerson) {
+            return res.status(400).json({
                 statusCode: 400,
                 error: 'Bad Request',
-                message: 'Complete birth details are required for both profiles to generate a compatibility report.',
-                details: { missingCurrent, missingMatch },
+                message: 'Both users need complete birth details (date, time, and birth city) to generate a compatibility report.',
             });
         }
 
-        const toPersonPayload = (u) => {
-            const bd = new Date(u.birthDate);
-            const t = parseTimeOfBirth(u.timeOfBirth);
-            return {
-                fullName: u.fullName,
-                day: bd.getUTCDate(),
-                month: bd.getUTCMonth() + 1,
-                year: bd.getUTCFullYear(),
-                hour: t.hour,
-                min: t.min,
-                sec: t.sec,
-                gender: u.gender,
-                place: u.cityOfBirth,
-                lat: u.latitudeOfCityOfBirth,
-                lon: u.longitudeOfCityOfBirth,
-                tzone: DEFAULT_TZONE,
-            };
-        };
+        const [ashtakoot, manglik, selfPlanets, otherPlanets] = await Promise.all([
+            divineApi.getAshtakootMilan(selfPerson, otherPerson),
+            divineApi.getMatchingManglikDosha(selfPerson, otherPerson),
+            divineApi.getPlanetaryPositions(selfPerson),
+            divineApi.getPlanetaryPositions(otherPerson),
+        ]);
 
-        const reportData = await getAshtakootMilan(toPersonPayload(currentUser), toPersonPayload(matchUser));
+        // Spend the quota only after a successful DivineAPI round-trip, so a
+        // failed/errored report doesn't cost the user their benefit.
+        subscription.benefits.matchMakingReport = subscription.benefits.matchMakingReport - 1;
+        await subscription.save();
 
-        return res.status(200).send({
+        return res.status(200).json({
             statusCode: 200,
-            message: 'Compatibility report generated successfully.',
+            error: null,
+            message: 'Compatibility report fetched successfully',
             data: {
-                person1Name: currentUser.fullName,
-                person2Name: matchUser.fullName,
-                report: reportData,
+                person1: { name: selfPerson.fullName },
+                person2: { name: otherPerson.fullName },
+                ashtakootMilan: ashtakoot.data,
+                manglikDosha: manglik.data,
+                planetaryPositions: {
+                    person1: selfPlanets.data,
+                    person2: otherPlanets.data,
+                },
+                remainingCompatibilityReports: subscription.benefits.matchMakingReport,
             },
         });
     } catch (error) {
-        console.log('error in getCompatibilityReport', error.message);
-        console.log('error in getCompatibilityReport', error);
-        return res.status(500).send({ statusCode: 500, error: 'Internal Server Error', message: 'Could not generate compatibility report right now. Please try again later.' });
+        if (error.code === 'DIVINE_API_NOT_CONFIGURED') {
+            return res.status(503).json({ statusCode: 503, error: 'Service Unavailable', message: error.message });
+        }
+        console.log('getCompatibilityReport error ', error?.response?.data || error.message);
+        return res.status(500).json({ statusCode: 500, error: 'Something went wrong', message: 'Could not generate compatibility report right now.' });
     }
 };
+
+
 
 
 
@@ -3284,8 +3314,6 @@ module.exports = {
     getMandatoryDetails,
     getAboutDetails,
     updateAboutDetails,
-    getDailyHoroscope,
-    getCompatibilityReport,
     getBasicDetails,
     updateBasicDetails,
     updateInterestsByType,
@@ -3338,5 +3366,7 @@ module.exports = {
     reportUser,
     getReportRecords,
     updateVOIPToken,
-    canSendCall
+    canSendCall,
+    getDailyHoroscope,
+    getCompatibilityReport
 }
