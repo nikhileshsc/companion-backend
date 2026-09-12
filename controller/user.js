@@ -3213,8 +3213,12 @@ const getDailyHoroscope = async (req, res) => {
         if (!sign) {
             return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Zodiac sign not set for this user yet.' });
         }
-        const result = await divineApi.getDailyHoroscope(sign);
-        return res.status(200).json({ statusCode: 200, error: null, message: 'Daily horoscope fetched successfully', data: result.data });
+     const result = await divineApi.getDailyHoroscope(sign);
+if (!result || result.success !== 1 || !result.data) {
+    console.log('DivineAPI daily-horoscope unexpected response:', JSON.stringify(result));
+    return res.status(502).json({ statusCode: 502, error: 'Bad Gateway', message: (result && result.message) ? result.message : 'DivineAPI did not return valid horoscope data.' });
+}
+return res.status(200).json({ statusCode: 200, error: null, message: 'Daily horoscope fetched successfully', data: result.data });
     } catch (error) {
         if (error.code === 'DIVINE_API_NOT_CONFIGURED') {
             return res.status(503).json({ statusCode: 503, error: 'Service Unavailable', message: error.message });
