@@ -3205,7 +3205,11 @@ function buildDivinePerson(userDoc) {
 // GET /getDailyHoroscope — free daily horoscope for the logged-in user's zodiac sign.
 const getDailyHoroscope = async (req, res) => {
     try {
-        const sign = req.user.zodiacSignInEng;
+        // Always fetch fresh from the DB - req.user can be stale session/token
+        // data from login time, so it may not reflect a birth-date update the
+        // user just saved in this same session.
+        const freshUser = await User.findById(req.user._id, 'zodiacSignInEng');
+        const sign = freshUser ? freshUser.zodiacSignInEng : null;
         if (!sign) {
             return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Zodiac sign not set for this user yet.' });
         }
