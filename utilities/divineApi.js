@@ -101,9 +101,29 @@ async function getPlanetaryPositions(person) {
     });
 }
 
+/**
+ * Today's Panchang (Vedic daily calendar: tithi, nakshatra, yoga, karana,
+ * sunrise/sunset) for a location. Free feature - replaces the Western
+ * "Daily Horoscope" concept, since this DivineAPI account's plan covers
+ * the Indian/Vedic API suite, not the Western horoscope-by-zodiac-sign product.
+ */
+async function getDailyPanchang(place, lat, lon) {
+    const today = new Date();
+    return postForm('https://astroapi-1.divineapi.com/indian-api/v2/find-panchang', {
+        day: today.getUTCDate(),
+        month: today.getUTCMonth() + 1,
+        year: today.getUTCFullYear(),
+        place: place,
+        lat: lat,
+        lon: lon,
+        tzone: DEFAULT_TZONE,
+    });
+}
+
 module.exports = {
     getDailyHoroscope,
     getAshtakootMilan,
     getMatchingManglikDosha,
     getPlanetaryPositions,
+    getDailyPanchang,
 };
