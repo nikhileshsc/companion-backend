@@ -87,6 +87,7 @@ router.post('/updateToken', userAuth, userController.updateVOIPToken)
 router.get('/canSendCall', userAuth, userController.canSendCall)
 
 router.get('/getDailyHoroscope', userAuth, userController.getDailyHoroscope)
+router.get('/getDailyPanchang', userAuth, userController.getDailyPanchang)
 router.post('/getCompatibilityReport', userAuth, userController.getCompatibilityReport)
 
 module.exports = router;
