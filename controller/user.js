@@ -2510,7 +2510,7 @@ const checkAndIncrementMessage = async (req, res) => {
         // ---------- CASE 1: ACTIVE SUBSCRIPTION ----------
 
 
-        if (isActiveEntitlement(subscription) && !(subscription.benefits['chatProfiles'] <= 0)) {
+      if (isActiveEntitlement(subscription) && subscription.benefits && !(subscription.benefits['chatProfiles'] <= 0)) {
             return res.status(200).json({
                 statusCode: 200,
                 message: 'User has an active subscription. Message allowed.',
@@ -2519,7 +2519,7 @@ const checkAndIncrementMessage = async (req, res) => {
             });
         }
 
-        if (subscription && subscription.benefits['chatProfiles'] <= 0) {
+       if (subscription && subscription.benefits && subscription.benefits['chatProfiles'] <= 0) {
             console.log("Benefits Exhausted!")
             return res.status(402).json({
                 statusCode: 402,
