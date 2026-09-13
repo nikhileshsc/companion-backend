@@ -3230,6 +3230,40 @@ return res.status(200).json({ statusCode: 200, error: null, message: 'Daily horo
 
 // POST /getCompatibilityReport — full Manglik + Ashtakoot + planetary-position
 // compatibility report between the logged-in user and another user (body: { userId }).
+// GET /getDailyPanchang — free daily Vedic Panchang (tithi, nakshatra, yoga,
+// karana, sunrise/sunset) for the logged-in user's current city. Replaces the
+// Western "Daily Horoscope" concept - this DivineAPI account's plan covers
+// the Indian/Vedic API suite, not the Western horoscope-by-zodiac-sign product.
+const getDailyPanchang = async (req, res) => {
+    try {
+        const freshUser = await User.findById(req.user._id, 'currentCity latitudeOfCurrentCity longitudeOfCurrentCity cityOfBirth latitudeOfCityOfBirth longitudeOfCityOfBirth');
+        if (!freshUser) {
+            return res.status(404).json({ statusCode: 404, error: 'Not Found', message: 'User not found.' });
+        }
+        const place = freshUser.currentCity || freshUser.cityOfBirth;
+        const lat = freshUser.latitudeOfCurrentCity || freshUser.latitudeOfCityOfBirth;
+        const lon = freshUser.longitudeOfCurrentCity || freshUser.longitudeOfCityOfBirth;
+        if (!place || !lat || !lon) {
+            return res.status(400).json({ statusCode: 400, error: 'Bad Request', message: 'Location not set for this user yet. Please complete your profile city details first.' });
+        }
+
+        const result = await divineApi.getDailyPanchang(place, lat, lon);
+        if (!result || result.success !== 1 || !result.data) {
+            console.log('DivineAPI find-panchang unexpected response:', JSON.stringify(result));
+            return res.status(502).json({ statusCode: 502, error: 'Bad Gateway', message: (result && result.message) ? result.message : 'DivineAPI did not return valid Panchang data.' });
+        }
+        return res.status(200).json({ statusCode: 200, error: null, message: 'Daily Panchang fetched successfully', data: result.data });
+    } catch (error) {
+        if (error.code === 'DIVINE_API_NOT_CONFIGURED') {
+            return res.status(503).json({ statusCode: 503, error: 'Service Unavailable', message: error.message });
+        }
+        console.log('getDailyPanchang error ', error?.response?.data || error.message);
+        return res.status(500).json({ statusCode: 500, error: 'Something went wrong', message: 'Could not fetch daily Panchang right now.' });
+    }
+};
+
+// POST /getCompatibilityReport — full Manglik + Ashtakoot + planetary-position
+// compatibility report between the logged-in user and another user (body: { userId }).
 const getCompatibilityReport = async (req, res) => {
     try {
         const otherUserId = req.body.userId;
@@ -3376,5 +3410,6 @@ module.exports = {
     updateVOIPToken,
     canSendCall,
     getDailyHoroscope,
+    getDailyPanchang,
     getCompatibilityReport
 }
