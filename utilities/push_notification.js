@@ -191,9 +191,17 @@ async function sendPushNotification(loginToken, title, body, data) {
             apns: {
                 headers: apnsHeaders,
                 payload: { aps: apnsAps }
-            },
-            // Optionally include notification block for iOS & Android auto-display:
-            ...(wantsVisibleAlert ? { notification: { title, body } } : {})
+            }
+            // NOTE: intentionally no top-level "notification" block here.
+            // When FCM messages include one, Android auto-displays a system
+            // notification from it whenever the app is backgrounded/killed,
+            // and SKIPS calling onMessageReceived() in NotificationMessagingService
+            // entirely in that state - which silently broke our custom
+            // notification styling, in-app popup alerts, and badge counts for any
+            // push (interests, chat messages, etc.) that arrived while the app
+            // wasn't in the foreground.
+            // iOS is unaffected: its visible alert already comes from
+            // apns.payload.aps.alert above, independent of this field.
         };
 
         await companionFirbase.messaging().send(fcmMsg);
