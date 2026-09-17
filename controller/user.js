@@ -2655,7 +2655,7 @@ const sendMessagePushNotification = async (req, res) => {
 
         const [receiverUser, senderUser] = await Promise.all([
             User.findById(receiverId, 'loginToken'),
-            User.findById(senderId, 'fullName')
+            User.findById(senderId, 'fullName profileUrl')
         ]);
 
         if (!receiverUser) {
@@ -2722,6 +2722,8 @@ const sendMessagePushNotification = async (req, res) => {
                 showNotification: 'true',
                 user: String(receiverId),
                 senderId: String(senderId),
+                senderName: senderUser?.fullName || 'Someone',
+                profileUrl: senderUser?.profileUrl || '',
                 messageSnippet: String(message).slice(0, 100),
             };
         }
