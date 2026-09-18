@@ -84,6 +84,8 @@ router.get('/getReportsRecords', userAuth, userController.getReportRecords);
 
 router.post('/updateToken', userAuth, userController.updateVOIPToken)
 
+router.post('/updateDeviceToken', userAuth, userController.updateDeviceToken)
+
 router.get('/canSendCall', userAuth, userController.canSendCall)
 
 router.get('/getDailyHoroscope', userAuth, userController.getDailyHoroscope)
