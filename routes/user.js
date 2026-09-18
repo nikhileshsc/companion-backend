@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controller/user')
+const deviceTokenController = require('../controller/deviceToken')
 const getOtpAuth = require('../middleware/getOtpAuth')
 const userAuth = require('../middleware/userAuth')
 
@@ -84,7 +85,7 @@ router.get('/getReportsRecords', userAuth, userController.getReportRecords);
 
 router.post('/updateToken', userAuth, userController.updateVOIPToken)
 
-router.post('/updateDeviceToken', userAuth, userController.updateDeviceToken)
+router.post('/updateDeviceToken', userAuth, deviceTokenController.updateDeviceToken)
 
 router.get('/canSendCall', userAuth, userController.canSendCall)
 
