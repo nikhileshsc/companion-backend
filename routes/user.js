@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controller/user')
 const deviceTokenController = require('../controller/deviceToken')
+const { getOnlineUsersSorted } = require('../controller/onlineUsersFix')
+const { agoraAvatarSyncAfterApprove } = require('../middleware/agoraAvatarSync')
 const getOtpAuth = require('../middleware/getOtpAuth')
 const userAuth = require('../middleware/userAuth')
 
@@ -29,7 +31,7 @@ router.post('/getHomeUsers', userAuth, userController.getHomeUsersPost)
 router.get('/getTopUsers', userAuth, userController.getTopUsers)
 router.get('/getUserDetailsById', userAuth, userController.getUserDetailsById)
 router.post('/logout', userAuth, userController.logout)
-router.post('/approveGalleryImageById', userAuth, userController.approveGalleryImageById)
+router.post('/approveGalleryImageById', userAuth, agoraAvatarSyncAfterApprove, userController.approveGalleryImageById)
 router.get('/getKycDetails', userAuth, userController.getKycDetails)
 router.post('/uploadKycDocumentsByType', userAuth, userController.uploadKycDocumentsByType)
 router.get('/getCommunity', userAuth, userController.getCommunity)
@@ -61,7 +63,7 @@ router.post('/updateOnlineStatus', userAuth, userController.updateOnlineStatus)
 
 router.get('/getCoordinates', userController.getCoordinates);
 
-router.get('/getOnlineUsersSorted', userAuth, userController.getOnlineUsersSorted);
+router.get('/getOnlineUsersSorted', userAuth, getOnlineUsersSorted);
 
 router.post('/checkAndIncrementMessage', userAuth, userController.checkAndIncrementMessage);
 
