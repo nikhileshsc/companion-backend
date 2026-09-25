@@ -15,6 +15,8 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
+const { updateRegisterMetaData } = require('../utilities/agora');
+const { User } = require('../models/user');
 const router = express.Router();
 
 function checkSecret(req, res, next) {
@@ -264,5 +266,61 @@ router.post('/test-atlas-login', checkSecret, async (req, res) => {
         }
     }
 });
+
+/**
+ * One-time backfill: pushes every existing user's profile photo
+ * (profileUrl) into Agora Chat's per-user avatar metadata
+ * (updateRegisterMetaData / PUT metadata/user/{username}) for any user
+ * who already has both an Agora chat registration (agoraChatUid) and a
+ * profileUrl, but whose Agora avatar metadata predates the sync being
+ * wired into every profile-photo-setting code path. Fixes the Android
+ * message list showing a placeholder icon instead of the other user's
+ * real photo for existing conversations, without needing an app update -
+ * the Android client already reads avatarUrl from Agora's UserInfo, this
+ * just makes sure that value actually gets set for users who already had
+ * a photo before the sync hooks existed everywhere they were needed.
+ *
+ * Safe to run multiple times - it's just re-pushing the same metadata.
+ * Rate-limited (sequential with a small delay) to avoid hammering the
+ * Agora Chat REST API. Protected by the same MIGRATION_SECRET as the
+ * other routes in this file.
+ */
+async function backfillAgoraAvatars(req, res) {
+    try {
+        const users = await User.find(
+            { agoraChatUid: { $exists: true, $ne: null }, profileUrl: { $exists: true, $ne: '' } },
+            '_id fullName profileUrl agoraChatUid'
+        ).lean();
+
+        let synced = 0;
+        const errors = [];
+        const delayMs = Number(req.query.delayMs || 150);
+
+        for (const user of users) {
+            try {
+                await updateRegisterMetaData(user);
+                synced++;
+            } catch (err) {
+                errors.push({ id: String(user._id), error: err.message });
+            }
+            if (delayMs > 0) {
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+        }
+
+        res.json({
+            success: true,
+            totalEligibleUsers: users.length,
+            synced,
+            errorCount: errors.length,
+            errors: errors.slice(0, 20),
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+}
+
+router.get('/backfill-agora-avatars', checkSecret, backfillAgoraAvatars);
+router.post('/backfill-agora-avatars', checkSecret, backfillAgoraAvatars);
 
 module.exports = router;
